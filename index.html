@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compresor de Video Web</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      text-align: center;
+      padding: 40px;
+    }
+    .container {
+      background: #222;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 0 10px #00f2ff;
+      max-width: 500px;
+      margin: auto;
+    }
+    input[type="file"] {
+      margin: 20px 0;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background-color: #00f2ff;
+      color: #000;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+    a#downloadLink {
+      margin-top: 20px;
+      display: inline-block;
+      background: #00ff88;
+      padding: 10px 20px;
+      border-radius: 10px;
+      color: #000;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎬 Compresor de Video (80% menos)</h1>
+    <input type="file" id="uploader" accept="video/*">
+    <button id="compressBtn" disabled>📉 Comprimir Video</button>
+    <p id="status"></p>
+    <a id="downloadLink" style="display: none;">⬇️ Descargar Video Comprimido</a>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+  <script>
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+
+    const uploader = document.getElementById('uploader');
+    const compressBtn = document.getElementById('compressBtn');
+    const status = document.getElementById('status');
+    const downloadLink = document.getElementById('downloadLink');
+
+    let inputFile;
+
+    uploader.addEventListener('change', (e) => {
+      inputFile = e.target.files[0];
+      if (inputFile) compressBtn.disabled = false;
+    });
+
+    compressBtn.addEventListener('click', async () => {
+      status.textContent = '⏳ Cargando FFmpeg...';
+      await ffmpeg.load();
+
+      const inputName = 'input.' + inputFile.name.split('.').pop();
+      const outputName = 'compressed_' + inputFile.name;
+
+      ffmpeg.FS('writeFile', inputName, await fetchFile(inputFile));
+
+      status.textContent = '🔧 Comprimiendo video (80%)...';
+      await ffmpeg.run('-i', inputName, '-vcodec', 'libx264', '-crf', '28', '-preset', 'veryfast', '-acodec', 'copy', outputName);
+
+      const data = ffmpeg.FS('readFile', outputName);
+
+      const videoURL = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+      downloadLink.href = videoURL;
+      downloadLink.download = outputName;
+      downloadLink.style.display = 'inline-block';
+      status.textContent = '✅ ¡Video comprimido listo para descargar!';
+    });
+  </script>
+</body>
+</html>
