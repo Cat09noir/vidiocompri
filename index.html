@@ -46,6 +46,28 @@
       color: #000;
       text-decoration: none;
     }
+    .progress {
+      margin-top: 15px;
+      background: #333;
+      height: 20px;
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: #00f2ff;
+      width: 0%;
+      transition: width 0.3s;
+      text-align: center;
+      color: #000;
+      font-weight: bold;
+    }
+    .size-info {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #ccc;
+    }
   </style>
 </head>
 <body>
@@ -54,18 +76,29 @@
     <input type="file" id="uploader" accept="video/*">
     <button id="compressBtn" disabled>📉 Comprimir Video</button>
     <p id="status"></p>
+    <div class="progress"><div class="progress-bar" id="progressBar">0%</div></div>
+    <div class="size-info" id="sizeInfo"></div>
     <a id="downloadLink" style="display: none;">⬇️ Descargar Video Comprimido</a>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
   <script>
     const { createFFmpeg, fetchFile } = FFmpeg;
-    const ffmpeg = createFFmpeg({ log: true });
+    const ffmpeg = createFFmpeg({
+      log: true,
+      progress: ({ ratio }) => {
+        const percent = Math.round(ratio * 100);
+        progressBar.style.width = `${percent}%`;
+        progressBar.textContent = `${percent}%`;
+      }
+    });
 
     const uploader = document.getElementById('uploader');
     const compressBtn = document.getElementById('compressBtn');
     const status = document.getElementById('status');
     const downloadLink = document.getElementById('downloadLink');
+    const progressBar = document.getElementById('progressBar');
+    const sizeInfo = document.getElementById('sizeInfo');
 
     let inputFile;
 
@@ -75,15 +108,18 @@
     });
 
     compressBtn.addEventListener('click', async () => {
+      compressBtn.disabled = true;
       status.textContent = '⏳ Cargando FFmpeg...';
+      progressBar.style.width = '0%';
       await ffmpeg.load();
 
-      const inputName = 'input.' + inputFile.name.split('.').pop();
+      const ext = inputFile.name.split('.').pop();
+      const inputName = 'input.' + ext;
       const outputName = 'compressed_' + inputFile.name;
 
       ffmpeg.FS('writeFile', inputName, await fetchFile(inputFile));
-
       status.textContent = '🔧 Comprimiendo video (80%)...';
+
       await ffmpeg.run('-i', inputName, '-vcodec', 'libx264', '-crf', '28', '-preset', 'veryfast', '-acodec', 'copy', outputName);
 
       const data = ffmpeg.FS('readFile', outputName);
@@ -92,6 +128,15 @@
       downloadLink.href = videoURL;
       downloadLink.download = outputName;
       downloadLink.style.display = 'inline-block';
+
+      const originalSize = inputFile.size / (1024 * 1024);
+      const newSize = data.buffer.byteLength / (1024 * 1024);
+      const percentSaved = 100 - ((newSize / originalSize) * 100);
+
+      sizeInfo.textContent = `📏 Tamaño original: ${originalSize.toFixed(2)} MB | Comprimido: ${newSize.toFixed(2)} MB | Ahorro: ${percentSaved.toFixed(1)}%`;
+
+      progressBar.style.width = '100%';
+      progressBar.textContent = '100%';
       status.textContent = '✅ ¡Video comprimido listo para descargar!';
     });
   </script>
